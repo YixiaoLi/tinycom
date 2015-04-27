@@ -1,47 +1,176 @@
-cmake_minimum_required(VERSION 2.4.3 FATAL_ERROR )
+#--------------------------------------------------------------------------------
+# This is an example project that uses CMake as a build system to compile a Qt4.x
+# based project. 
+# To have CMake pick a Qt installation of your choice that won't be found
+# automatically, set the CMAKE_PREFIX_PATH environment variable.
+# For example: "export CMAKE_PREFIX_PATH=/usr/local/trolltech/qt4.3.5"
+#  
 
-project(CuteCom)
+SET (PROJECT_NAME TinyCom)
 
-set(QT_MIN_VERSION 4.1.0)
-find_package(Qt4 REQUIRED)
+PROJECT (${PROJECT_NAME})
+cmake_minimum_required(VERSION 2.8)
 
-include_directories(${QT_INCLUDES} ${CMAKE_BINARY_DIR})
+#--------------------------------------------------------------------------------
+# This is the list of source files that need to be compiled
+#--------------------------------------------------------------------------------
+SET( QTTEST_SRCS
+  main.cpp
+  qcppdialogimpl.cpp
+)
+
+#--------------------------------------------------------------------------------
+# another list, this time it includes all header files that should be treated with moc
+#--------------------------------------------------------------------------------
+SET( QTTEST_MOC_HDRS
+  qcppdialogimpl.h
+)
+
+#--------------------------------------------------------------------------------
+# .ui files that are used in the project
+#--------------------------------------------------------------------------------
+SET( QTTEST_UIS
+  cutecommdlg.ui
+)
+
+#--------------------------------------------------------------------------------
+# and finally any resource files. I do not have any in this example
+#--------------------------------------------------------------------------------
+SET( QTTEST_RCS
+
+)
+
+#--------------------------------------------------------------------------------
+# This sets the windows build that will need the special winmain@16 call. Qt provides
+#  this for us in the qtmain.lib file. Using this cmake code will ensure we have it
+#  linked into our build. Not needed on Unix/OS X/Linux which is why we have the 
+#  IF(WIN32) conditional.
+IF (WIN32)
+    SET (QT_USE_QTMAIN TRUE)
+ENDIF (WIN32)
+
+#--------------------------------------------------------------------------------
+# this command finds Qt4 libraries and sets all required variables
+# note that it's Qt4, not QT4 or qt4
+FIND_PACKAGE( Qt4 REQUIRED )
 add_definitions(-DQT3_SUPPORT)
-set(cutecomSrcs main.cpp qcppdialogimpl.cpp)
 
-qt4_wrap_cpp(cutecomSrcs qcppdialogimpl.h)
+#--------------------------------------------------------------------------------
+# QT_USE_FILE is a variable defined by FIND_PACKAGE( Qt4 ) that contains a path to
+# a CMake script that sets up this directory for building with Qt4
+INCLUDE( ${QT_USE_FILE} )
 
-qt4_wrap_ui(cutecomSrcs cutecommdlg.ui)
+#--------------------------------------------------------------------------------
+# this command will generate rules that will run rcc on all files from QTTEST_RCS
+# in result QTTEST_GEN_RCS variable will contain paths to files produced by rcc
+QT4_ADD_RESOURCES( QTTEST_GEN_RCS ${QTTEST_RCS} )
 
-set(exeType)
-set(binInstallDir bin )
+#--------------------------------------------------------------------------------
+# this will run uic on .ui files:
+QT4_WRAP_UI( QTTEST_GEN_UIS ${QTTEST_UIS} )
 
-if(APPLE)
-   # with cmake < 2.6 install(TARGETS ... BUNDLE DESTINATION ... ) doesn't work:
-   cmake_minimum_required(VERSION 2.6 FATAL_ERROR )
-   set(exeType MACOSX_BUNDLE)
-   set(binInstallDir /Applications )
-   # hint to linker for indirect referenced libs inside qt3support
-   set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -dylib_file QtSql.framework/Versions/4/QtSql:/Library/Frameworks/QtSql.framework/Versions/4/QtSql")
-   set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -dylib_file QtNetwork.framework/Versions/4/QtNetwork:/Library/Frameworks/QtNetwork.framework/Versions/4/QtNetwork")
-   set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -dylib_file QtXml.framework/Versions/4/QtXml:/Library/Frameworks/QtXml.framework/Versions/4/QtXml")
-endif(APPLE)
+#--------------------------------------------------------------------------------
+# and finally this will run moc on the headers
+QT4_WRAP_CPP( QTTEST_GEN_MOC_HDRS ${QTTEST_MOC_HDRS} )
 
-add_executable(cutecom ${exeType} ${cutecomSrcs})
-target_link_libraries(cutecom ${QT_QT3SUPPORT_LIBRARY} ${QT_QTGUI_LIBRARY} ${QT_QTCORE_LIBRARY})
+#--------------------------------------------------------------------------------
+# we need this to be able to include headers produced by uic in our code
+# CMAKE_BINARY_DIR holds a path to the build directory, while INCLUDE_DIRECTORIES()
+#  works just like INCLUDEPATH from qmake
+INCLUDE_DIRECTORIES (
+  # Look in the cmake build directory (some generated headers could be there)
+  ${QT_INCLUDES} 
+  ${CMAKE_CURRENT_BINARY_DIR} 
+)
 
-if (APPLE)
-   set_target_properties(cutecom PROPERTIES OUTPUT_NAME CuteCom)
-endif (APPLE)
+#--------------------------------------------------------------------------------
+# For Apple set the icns file containing icons
+IF(APPLE)
+  # set how it shows up in the Info.plist file
+  SET(MACOSX_BUNDLE_ICON_FILE ${PROJECT_NAME}.icns) 
+  # set where in the bundle to put the icns file
+  SET_SOURCE_FILES_PROPERTIES(${CMAKE_CURRENT_SOURCE_DIR}/${PROJECT_NAME}.icns PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
+  # include the icns file in the target
+  SET(QTTEST_SRCS ${QTTEST_SRCS} ${CMAKE_CURRENT_SOURCE_DIR}/${PROJECT_NAME}.icns)
+ENDIF(APPLE)
 
-install(TARGETS cutecom DESTINATION ${binInstallDir} )
+#--------------------------------------------------------------------------------
+#  CMake's way of creating an executable
+ADD_EXECUTABLE( ${PROJECT_NAME} MACOSX_BUNDLE WIN32
+  ${QTTEST_SRCS}
+  ${QTTEST_GEN_MOC_HDRS} 
+  ${QTTEST_GEN_UIS}
+  ${QTTEST_GEN_RCS}
+)
 
-install(FILES cutecom.1 DESTINATION share/man/man1 )
 
-find_program(KDECONFIG_EXECUTABLE NAMES kde-config )
+#--------------------------------------------------------------------------------
+# Tell CMake which libraries we need to link our executable against.
+TARGET_LINK_LIBRARIES ( ${PROJECT_NAME}  ${QT_LIBRARIES} ${QT_QT3SUPPORT_LIBRARY} )
+#target_link_libraries(cutecom ${QT_QT3SUPPORT_LIBRARY} ${QT_QTGUI_LIBRARY} ${QT_QTCORE_LIBRARY})
 
-if (KDECONFIG_EXECUTABLE)
-   # then ask kde-config for the kde data dirs
-   exec_program(${KDECONFIG_EXECUTABLE} ARGS --install apps --expandvars OUTPUT_VARIABLE _apps_DIR )
-   install(FILES cutecom.desktop DESTINATION ${_apps_DIR}/Utilities)
-endif (KDECONFIG_EXECUTABLE)
+
+#--------------------------------------------------------------------------------
+# Now the installation stuff below
+#--------------------------------------------------------------------------------
+SET(plugin_dest_dir bin)
+SET(qtconf_dest_dir bin)
+SET(APPS "\${CMAKE_INSTALL_PREFIX}/bin/${PROJECT_NAME}")
+IF(APPLE)
+  SET(plugin_dest_dir ${PROJECT_NAME}.app/Contents/MacOS)
+  SET(qtconf_dest_dir ${PROJECT_NAME}.app/Contents/Resources)
+  SET(APPS "\${CMAKE_INSTALL_PREFIX}/${PROJECT_NAME}.app")
+ENDIF(APPLE)
+IF(WIN32)
+  SET(APPS "\${CMAKE_INSTALL_PREFIX}/bin/${PROJECT_NAME}.exe")
+ENDIF(WIN32)
+
+#--------------------------------------------------------------------------------
+# Install the ${PROJECT_NAME} application, on Apple, the bundle is at the root of the
+# install tree, and on other platforms it'll go into the bin directory.
+INSTALL(TARGETS ${PROJECT_NAME} 
+    BUNDLE DESTINATION . COMPONENT Runtime
+    RUNTIME DESTINATION bin COMPONENT Runtime
+    )
+
+#--------------------------------------------------------------------------------
+# Install needed Qt plugins by copying directories from the qt installation
+# One can cull what gets copied by using 'REGEX "..." EXCLUDE'
+INSTALL(DIRECTORY "${QT_PLUGINS_DIR}/imageformats" DESTINATION ${plugin_dest_dir}/plugins COMPONENT Runtime)
+
+#--------------------------------------------------------------------------------
+# install a qt.conf file
+# this inserts some cmake code into the install script to write the file
+INSTALL(CODE "
+    file(WRITE \"\${CMAKE_INSTALL_PREFIX}/${qtconf_dest_dir}/qt.conf\" \"\")
+    " COMPONENT Runtime)
+
+
+#--------------------------------------------------------------------------------
+# Use BundleUtilities to get all other dependencies for the application to work.
+# It takes a bundle or executable along with possible plugins and inspects it
+# for dependencies.  If they are not system dependencies, they are copied.
+
+# directories to look for dependencies
+SET(DIRS ${QT_LIBRARY_DIRS})
+
+# Now the work of copying dependencies into the bundle/package
+# The quotes are escaped and variables to use at install time have their $ escaped
+# An alternative is the do a configure_file() on a script and use install(SCRIPT  ...).
+# Note that the image plugins depend on QtSvg and QtXml, and it got those copied
+# over.
+INSTALL(CODE "
+    file(GLOB_RECURSE QTPLUGINS
+      \"\${CMAKE_INSTALL_PREFIX}/${plugin_dest_dir}/plugins/*${CMAKE_SHARED_LIBRARY_SUFFIX}\")
+    include(BundleUtilities)
+    SET(BU_CHMOD_BUNDLE_ITEMS ON)
+    fixup_bundle(\"${APPS}\" \"\${QTPLUGINS}\" \"${DIRS}\")
+    " COMPONENT Runtime)
+
+
+# To Create a package, one can run "cpack -G DragNDrop CPackConfig.cmake" on Mac OS X
+# where CPackConfig.cmake is created by including CPack
+# And then there's ways to customize this as well
+set(CPACK_BINARY_DRAGNDROP ON)
+include(CPack)
+

@@ -30,11 +30,4 @@
 # Debug files
 *.dSYM/
 
-# Qt
-*.cxx_parameters
-
-# CMake
-*.cmake
-CMakeCache.txt
-Makefile
-CMakeFiles/
+.DS_Store

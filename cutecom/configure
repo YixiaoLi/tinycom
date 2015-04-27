@@ -8,5 +8,9 @@ echo
 echo "So instead of running ./configure, you need to run cmake:"
 echo "$ cmake ."
 echo
-
+rm -rf build
+mkdir build
+cd build
+cmake -DCMAKE_INSTALL_PREFIX=pkg ..
+make install
 
