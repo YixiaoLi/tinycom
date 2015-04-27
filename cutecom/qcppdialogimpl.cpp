@@ -481,7 +481,7 @@ void QCPPDialogImpl::sendFile()
             || (m_protoPb->currentText()=="1kXModem"))
    {
 //      QProcess sx(this);
-      disconnectTTYRestore(false);
+      //disconnectTTYRestore(false);
       m_sz=new Q3Process(this);
       m_sz->addArgument("sh");
       m_sz->addArgument("-c");
@@ -504,9 +504,10 @@ void QCPPDialogImpl::sendFile()
          tmp+="--xmodem --1k ";
       }
 
-      tmp=tmp+"-vv \""+filename+"\" < "+m_deviceCb->currentText()+" > "+m_deviceCb->currentText();
+      //tmp=tmp+"-vv \""+filename+"\" < "+m_deviceCb->currentText()+" > "+m_deviceCb->currentText();
+      tmp=tmp+"-vv \""+filename+"\""; // +"\" < "+m_deviceCb->currentText();
       m_sz->addArgument(tmp);
-      m_sz->setCommunication(Q3Process::Stderr);
+      m_sz->setCommunication(Q3Process::Stderr|Q3Process::Stdout|Q3Process::Stdin);
 
       connect(m_sz, SIGNAL(readyReadStderr()), this, SLOT(readFromStderr()));
 /*      m_sz->addArgument("sx");
@@ -514,8 +515,8 @@ void QCPPDialogImpl::sendFile()
       m_sz->addArgument(filename);
       m_sz->setCommunication(QProcess::Stdin|QProcess::Stdout|QProcess::Stderr);
 
-      connect(m_sz, SIGNAL(readyReadStdout()), this, SLOT(readFromStdout()));
       connect(m_sz, SIGNAL(readyReadStderr()), this, SLOT(readFromStderr()));*/
+      connect(m_sz, SIGNAL(readyReadStdout()), this, SLOT(readFromStdout()));
       connect(m_sz, SIGNAL(processExited()), this, SLOT(sendDone()));
       if (!m_sz->start())
       {
@@ -547,7 +548,7 @@ void QCPPDialogImpl::sendFile()
       m_sz=0;
       delete m_progress;
       m_progress=0;
-      connectTTY();
+      //connectTTY();
    }
    else
    {
@@ -567,7 +568,7 @@ void QCPPDialogImpl::killSz()
 void QCPPDialogImpl::readFromStdout()
 {
    QByteArray ba=m_sz->readStdout();
-//   cerr<<"readFromStdout() "<<ba.count()<<std::endl;
+   cerr<<"readFromStdout() "<<ba.count()<<std::endl;
    unsigned int bytesToWrite=ba.count();
    char* src=ba.data();
    while (bytesToWrite>0)
@@ -575,7 +576,7 @@ void QCPPDialogImpl::readFromStdout()
       int bytesWritten=::write(m_fd, src, (bytesToWrite>CUTECOMM_BUFSIZE?CUTECOMM_BUFSIZE:bytesToWrite));
       if (bytesWritten<0)
       {
-//         cerr<<"readFromStdout() error "<<bytesWritten<<" , "<<bytesToWrite<<" left"<<std::endl;
+         cerr<<"readFromStdout() error "<<bytesWritten<<" , "<<bytesToWrite<<" left"<<std::endl;
          return;
       }
       src+=bytesWritten;
@@ -587,7 +588,8 @@ void QCPPDialogImpl::readFromStdout()
 void QCPPDialogImpl::readFromStderr()
 {
    QByteArray ba=m_sz->readStderr();
-//   cerr<<"readFromStderr() "<<ba.count()<<std::endl;
+   cerr<<"readFromStderr() "<<ba.count()<<std::endl;
+   cerr<<"readFromStderr() "<<ba.data()<<std::endl;
    if (m_progress==0)
    {
       return;
@@ -598,7 +600,7 @@ void QCPPDialogImpl::readFromStderr()
    if (pos>-1)
    {
       QString captured=regex.cap(1);
-//      cerr<<"captured kb: -"<<captured.latin1()<<"-"<<std::endl;
+      cerr<<"captured kb: -"<<captured.latin1()<<"-"<<std::endl;
       int kb=captured.toUInt();
       if ((kb%m_progressStepSize)==0)
       {
@@ -1264,7 +1266,7 @@ void QCPPDialogImpl::readData(int fd)
    const char* c=m_buf;
    if (m_sz!=0)
    {
-//      std::cerr<<"readData() "<<bytesRead<<std::endl;
+      std::cerr<<"readData() "<<bytesRead<<std::endl;
       QByteArray ba(m_buf, bytesRead);
       m_sz->writeToStdin(ba);
       return;
